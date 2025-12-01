@@ -1,0 +1,213 @@
+// Prisma schema for Pulse AI
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User model for storing connected accounts
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  threads      Thread[]
+  participants ThreadParticipant[]
+  actionItems  ActionItem[]
+  integrations Integration[]
+}
+
+// Integration connections (Gmail, Calendar, Slack)
+model Integration {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String   // gmail, calendar, slack
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  metadata     Json?    // Store provider-specific data
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+// Thread model - groups related items together
+model Thread {
+  id              String       @id @default(cuid())
+  title           String
+  summary         String?      @db.Text
+  status          ThreadStatus @default(ACTIVE)
+  priority        Priority     @default(MEDIUM)
+  lastActivity    DateTime     @default(now())
+  unresolvedCount Int          @default(0)
+  isStarred       Boolean      @default(false)
+  isArchived      Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Owner
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  items        TimelineItem[]
+  participants ThreadParticipant[]
+  actionItems  ActionItem[]
+  tags         ThreadTag[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([lastActivity])
+}
+
+enum ThreadStatus {
+  ACTIVE
+  STALE
+  BLOCKED
+  COMPLETED
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// Timeline items within a thread
+model TimelineItem {
+  id        String   @id @default(cuid())
+  threadId  String
+  type      ItemType
+  title     String?
+  content   String?  @db.Text
+  timestamp DateTime @default(now())
+  
+  // Source tracking
+  source     String?  // gmail, calendar, slack, manual
+  sourceId   String?  // Original ID from source
+  sourceUrl  String?  // Link to original
+  
+  metadata  Json?    // Store additional data
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  thread       Thread              @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  participants ItemParticipant[]
+
+  @@unique([source, sourceId])
+  @@index([threadId])
+  @@index([timestamp])
+  @@index([type])
+}
+
+enum ItemType {
+  EMAIL
+  MEETING
+  NOTE
+  TODO
+  SLACK
+}
+
+// Participants in a thread
+model ThreadParticipant {
+  id       String @id @default(cuid())
+  threadId String
+  userId   String?
+  
+  // For external participants
+  name   String
+  email  String?
+  avatar String?
+  role   String?
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@unique([threadId, email])
+  @@index([threadId])
+}
+
+// Participants in an item
+model ItemParticipant {
+  id     String @id @default(cuid())
+  itemId String
+  name   String
+  email  String?
+  avatar String?
+
+  item TimelineItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+// Action items extracted from threads
+model ActionItem {
+  id          String           @id @default(cuid())
+  threadId    String
+  text        String
+  status      ActionItemStatus @default(PENDING)
+  priority    Priority         @default(MEDIUM)
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Assignee
+  assigneeId String?
+  assignee   User?   @relation(fields: [assigneeId], references: [id])
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([status])
+  @@index([assigneeId])
+}
+
+enum ActionItemStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// Tags for threads
+model Tag {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  color     String?
+  createdAt DateTime    @default(now())
+
+  threads ThreadTag[]
+}
+
+model ThreadTag {
+  threadId String
+  tagId    String
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([threadId, tagId])
+}
+
+// Sync history for tracking data imports
+model SyncLog {
+  id        String   @id @default(cuid())
+  provider  String   // gmail, calendar, slack
+  status    String   // success, failed, partial
+  itemCount Int      @default(0)
+  errors    Json?
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+}
