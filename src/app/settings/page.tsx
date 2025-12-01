@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useIntegrations } from '@/hooks/useIntegrations';
-import { Mail, Calendar, MessageSquare, Check, X, Loader2, ExternalLink, Settings2, Zap, Shield } from 'lucide-react';
+import { useAI } from '@/hooks/useAI';
+import { Mail, Calendar, MessageSquare, Check, X, Loader2, ExternalLink, Settings2, Zap, Shield, Sparkles } from 'lucide-react';
 
 function getNotificationFromParams(success: string | null, error: string | null): { type: 'success' | 'error'; message: string } | null {
   if (success) {
@@ -30,6 +31,7 @@ function getNotificationFromParams(success: string | null, error: string | null)
 function SettingsContent() {
   const searchParams = useSearchParams();
   const { status, isLoading, connectGmail, connectCalendar, connectSlack, disconnectGmail, disconnectCalendar, disconnectSlack, refreshStatus } = useIntegrations();
+  const { status: aiStatus } = useAI();
   
   // Get initial notification from URL params
   const success = searchParams.get('success');
@@ -185,6 +187,49 @@ function SettingsContent() {
           <Zap className="h-5 w-5 text-indigo-500" />
           AI Processing
         </h2>
+        
+        {/* AI Provider Status */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${aiStatus?.ready ? 'bg-green-50 dark:bg-green-900/20' : 'bg-yellow-50 dark:bg-yellow-900/20'}`}>
+                <Sparkles className={`h-5 w-5 ${aiStatus?.ready ? 'text-green-500' : 'text-yellow-500'}`} />
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900 dark:text-white">AI Provider Status</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {aiStatus?.ready 
+                    ? `Active: ${aiStatus.active === 'openai' ? 'OpenAI GPT-4o-mini' : 'Google Gemini 1.5 Flash'}`
+                    : 'No AI provider configured'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                aiStatus?.available.openai 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                  : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+              }`}>
+                OpenAI {aiStatus?.available.openai ? '✓' : '✗'}
+              </span>
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                aiStatus?.available.gemini 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                  : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+              }`}>
+                Gemini {aiStatus?.available.gemini ? '✓' : '✗'}
+              </span>
+            </div>
+          </div>
+          {!aiStatus?.ready && (
+            <p className="text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+              Add <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">OPENAI_API_KEY</code> or{' '}
+              <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">GEMINI_API_KEY</code> to your{' '}
+              <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">.env.local</code> file to enable AI features.
+            </p>
+          )}
+        </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
