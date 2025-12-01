@@ -7,36 +7,44 @@ export interface Participant {
     name: string;
     role: string;
     avatar?: string;
-    email: string;
+    email?: string;
 }
 
 export interface TimelineItem {
     id: string;
     type: ItemType;
-    date: string; // ISO string
-    authorId: string;
+    timestamp: string; // ISO string
     title?: string;
-    content: string;
-    actionItems?: ActionItem[];
-    metadata?: Record<string, any>;
+    content?: string;
+    participants?: Participant[];
+    source?: string;
+    sourceId?: string;
+    metadata?: Record<string, unknown>;
 }
 
 export interface ActionItem {
     id: string;
     text: string;
-    assigneeId?: string;
-    isCompleted: boolean;
+    assignee?: Participant;
+    status: 'pending' | 'completed';
     dueDate?: string;
+    createdAt: string;
 }
 
 export interface Thread {
     id: string;
     title: string;
+    summary?: string;
     status: ThreadStatus;
     priority: ThreadPriority;
     participants: Participant[];
-    items: TimelineItem[];
     lastActivity: string;
+    itemCount: number;
     unresolvedCount: number;
     tags: string[];
+    actionItems?: ActionItem[];
 }
+
+// Re-export for backwards compatibility
+export type { TimelineItem as TimelineEvent };
+
